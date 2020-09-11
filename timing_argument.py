@@ -11,6 +11,7 @@ import numpy as np
 import scipy.optimize as sp
 import matplotlib.pyplot as plt
 import sys
+import math
 
 # r = physical distance between MW and M31
 # This evolves according to a differential equation involving G, their total mass M and Lambda.
@@ -25,6 +26,7 @@ import sys
 def r_vector(r_max, M, time_step, N, Omega_lambda, H_0):
     GM = M * 4.50029385227242E-3 # In Mpc^3 Gy^-2
     Lambda_c_squared_over_3 = Omega_lambda * H_0**2 * 1.04566436906929E-06 # In Gy^-2
+    time_step_squared = time_step**2 # In Gy^2
     r = -1 * np.ones(N) # In Mpc. Default value of -1 denotes 'not calculated (yet)'.
     for i in range(N):
         if i == 0:
@@ -32,12 +34,31 @@ def r_vector(r_max, M, time_step, N, Omega_lambda, H_0):
         else:
             prev_r = r[i-1]
             acceleration = (Lambda_c_squared_over_3 * prev_r - GM / prev_r**2)
+                
+            #if acceleration > 0.0:
+            #    print("Positive acceleration encountered")
+            #    print("r_max={}".format(r_max))
+            #    print("M={}".format(M))
+            #    print("time_step={}".format(time_step))
+            #    print("N={}".format(N))
+            #    print("Omega_lambda={}".format(Omega_lambda))
+            #    print("H_0={}".format(H_0))
+            #    print("i={}".format(i))
+            #    print("acceleration={}".format(acceleration))
+            #    print("GM={}".format(GM))
+            #    print("Lambda_c_squared_over_3={}".format(Lambda_c_squared_over_3))
+            #    print("prev_r={}".format(prev_r))
+            
+            # Positive acceleration is disastrous as we never converge to r = 0.
+            assert acceleration <= 0.0, "Positive acceleration encountered"
             
             if i == 1:
-                r[i] = prev_r + (time_step**2 / 2.0) * acceleration
+                # Here we are using dr_dt[0]=0 (as r=r_max at that point).
+                r[i] = prev_r + 0.5 * time_step_squared * acceleration
             else:
                 prev_prev_r = r[i-2]
-                r[i] = 2.0 * prev_r - prev_prev_r + time_step**2 * acceleration
+                r[i] = 2.0 * prev_r - prev_prev_r + time_step_squared * acceleration
+        
         if r[i] < 0.0:
             break
     return r
@@ -105,7 +126,7 @@ def r_now_and_v_now(r_max, M, t_now, N, Omega_lambda, H_0):
     return (r_now, v_now)
     
     
-    
+# x should contain ln(r_max/1Mpc) and ln(M/(10^12 solar masses)).
 def obj_function(x, extra_args):
     # Units for all of these are the same as the interface to r_now_and_v_now
     t_now = extra_args[0]
@@ -115,16 +136,15 @@ def obj_function(x, extra_args):
     target_r_now = extra_args[4]
     target_v_now = extra_args[5]
     
-    r_max = x[0]
-    M = x[1]
+    r_max = math.exp(x[0])
+    M = math.exp(x[1])
+    #print(r_max, M, x)
     
     (r_now, v_now) = r_now_and_v_now(r_max, M, t_now, N, Omega_lambda, H_0)
     
     r_err = r_now - target_r_now
     v_err = v_now - target_v_now
-    
-    #print(r_max, M, r_err, v_err)
-    
+
     return np.array([r_err, v_err])
     
     
@@ -140,16 +160,20 @@ def show_plot_of_solution(r, time_step, N, t_now):
 def solve_for_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M):
 
     fun = obj_function
-    x0 = np.array([guess_r_max, guess_M])
+    
+    # In our interaction with the root finder we use log_r_max and log_M
+    # (as we want to ensure r_max and M are both positive and the root
+    # finder doesn't allow constraints to be specified).
+    x0 = np.log(np.array([guess_r_max, guess_M]))
     args = np.array([t_now, N, Omega_lambda, H_0, r_now, v_now])
 
-    root_ret = sp.root(fun = fun, x0 = x0, args = args, method = 'broyden1')
+    root_ret = sp.root(fun = fun, x0 = x0, args = args, method = 'hybr')
     
     if not root_ret.success:
         raise AssertionError(root_ret.message)
         
-    r_max = root_ret.x[0]
-    M = root_ret.x[1]
+    r_max = math.exp(root_ret.x[0])
+    M = math.exp(root_ret.x[1])
     
     plot_solution = False
     if plot_solution:
@@ -157,6 +181,7 @@ def solve_for_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max
         r = r_vector(r_max, M, time_step, N, Omega_lambda, H_0)
         show_plot_of_solution(r, time_step, N, t_now)
     
+    print(r_now, v_now, t_now, N, Omega_lambda, H_0, r_max, M)
     return(r_max, M)
 
 
@@ -184,6 +209,65 @@ def regression_test():
     print("Regression test " + ("passed" if r_max_OK and M_OK else "FAILED") + ".")
     
     
+# Units:
+# r_now in Mpc, v_now in km/s, t_now in Gy, H_0 in km/s/Mpc, guess_r_max in Mpc, guess_M in 10^12 solar masses.
+# The same unis are used in the return value.
+def M_and_derivatives(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M):
+    # Base case
+    (r_max, M) = solve_for_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
+    
+    # Use the base case results as the intial guess when calculating derivatives.
+    #print(guess_r_max, r_max, guess_M, M)
+    guess_r_max = r_max
+    guess_M = M
+    
+    r_now_delta = 0.001 # Mpc
+    (_, M_up) = solve_for_r_max_and_M(r_now + r_now_delta, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
+    (_, M_dn) = solve_for_r_max_and_M(r_now - r_now_delta, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
+    dM_d_r_now = (M_up - M_dn) / (2.0 * r_now_delta) # 10^12 solar masses/Mpc
+    
+    v_now_delta = 1.0 # km/s
+    (_, M_up) = solve_for_r_max_and_M(r_now, v_now + v_now_delta, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
+    (_, M_dn) = solve_for_r_max_and_M(r_now, v_now - v_now_delta, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
+    dM_d_v_now = (M_up - M_dn) / (2.0 * v_now_delta) # 10^12 solar masses/(km/s)
+    
+    t_now_delta = 0.01 # Gy
+    (_, M_up) = solve_for_r_max_and_M(r_now, v_now, t_now + t_now_delta, N, Omega_lambda, H_0, guess_r_max, guess_M)
+    (_, M_dn) = solve_for_r_max_and_M(r_now, v_now, t_now - t_now_delta, N, Omega_lambda, H_0, guess_r_max, guess_M)
+    dM_d_t_now = (M_up - M_dn) / (2.0 * t_now_delta) # 10^12 solar masses/Gy
+    
+    Omega_lambda_delta = 0.01 # unitless
+    (_, M_up) = solve_for_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda + Omega_lambda_delta, H_0, guess_r_max, guess_M)
+    (_, M_dn) = solve_for_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda - Omega_lambda_delta, H_0, guess_r_max, guess_M)
+    dM_d_Omega_lambda = (M_up - M_dn) / (2.0 * Omega_lambda_delta) # 10^12 solar masses
+    
+    H_0_delta = 1.0 # km/s/Mpc
+    (_, M_up) = solve_for_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda, H_0 + H_0_delta, guess_r_max, guess_M)
+    (_, M_dn) = solve_for_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda, H_0 - H_0_delta, guess_r_max, guess_M)
+    dM_d_H_0 = (M_up - M_dn) / (2.0 * H_0_delta) # 10^12 solar masses / (km/s/Mpc)
+    
+    return(M, dM_d_r_now, dM_d_v_now, dM_d_t_now, dM_d_Omega_lambda, dM_d_H_0)
+
+
+
+def error_analysis():
+
+    r_now = 0.784 # Mpc
+    v_now = -130.0 # km/s
+    t_now = 13.81 # Gy
+    N = 5000
+    Omega_lambda = 0.69 # unitless
+    H_0 = 67.4 # km/s/Mpc
+    guess_r_max = 1.1 # Mpc
+    guess_M = 5.95 # 10^12 solar masses
+    
+    (M, dM_d_r_now, dM_d_v_now, dM_d_t_now, dM_d_Omega_lambda, dM_d_H_0) = M_and_derivatives(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
+    
+    print(M, dM_d_r_now, dM_d_v_now, dM_d_t_now, dM_d_Omega_lambda, dM_d_H_0)
+    
+
+
+    
 
 if __name__ == '__main__':
 
@@ -191,23 +275,9 @@ if __name__ == '__main__':
 
     if do_regression_test:
         regression_test()
-        
     else:
-
+        error_analysis()
         
-        target_r_now = 0.784 # Mpc
-        target_v_now = -130.0 # km/s
-        t_now = 13.81 # Gy
-        N = 5000
-        Omega_lambda = 0.69
-        H_0 = 67.4 # km/s/Mpc
-        guess_r_max = 1.1 # Mpc
-        guess_M = 6.0 # 10^12 solar masses
-        
-        
-        for t_now in np.linspace(13.56, 14.06, 11):
-            (r_max, M) = solve_for_r_max_and_M(target_r_now, target_v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
-            print(target_r_now, target_v_now, t_now, Omega_lambda, H_0, r_max, M)
         
         
     
