@@ -24,6 +24,13 @@ import math
 # r_max (maximum value of r) in Mpc, M in 10^12 solar masses, t_now in Gy, H_0 in km/s/Mpc
 # Return vector of r values (in Mpc) at equally spaced time points has length N. It starts at r_max and then falls.
 def r_vector(r_max, M, time_step, N, Omega_lambda, H_0):
+
+    # TODO - use these constants instead of magic numbers.
+    SECONDS_PER_GIGAYEAR = 3.1556736E+16
+    METRES_PER_MEGAPARSEC = 3.0856776E+22
+    #INVERSE_SECONDS_PER_KM_OVER_SECOND_OVER_MEGAPARSEC = 1.0E3 / METRES_PER_MEGAPARSEC
+
+
     GM = M * 4.50029385227242E-3 # In Mpc^3 Gy^-2
     Lambda_c_squared_over_3 = Omega_lambda * H_0**2 * 1.04566436906929E-06 # In Gy^-2
     time_step_squared = time_step**2 # In Gy^2
@@ -34,20 +41,6 @@ def r_vector(r_max, M, time_step, N, Omega_lambda, H_0):
         else:
             prev_r = r[i-1]
             acceleration = (Lambda_c_squared_over_3 * prev_r - GM / prev_r**2)
-                
-            #if acceleration > 0.0:
-            #    print("Positive acceleration encountered")
-            #    print("r_max={}".format(r_max))
-            #    print("M={}".format(M))
-            #    print("time_step={}".format(time_step))
-            #    print("N={}".format(N))
-            #    print("Omega_lambda={}".format(Omega_lambda))
-            #    print("H_0={}".format(H_0))
-            #    print("i={}".format(i))
-            #    print("acceleration={}".format(acceleration))
-            #    print("GM={}".format(GM))
-            #    print("Lambda_c_squared_over_3={}".format(Lambda_c_squared_over_3))
-            #    print("prev_r={}".format(prev_r))
             
             # Positive acceleration is disastrous as we never converge to r = 0.
             assert acceleration <= 0.0, "Positive acceleration encountered"
@@ -198,8 +191,8 @@ def regression_test():
     guess_r_max = 1.1 # Mpc
     guess_M = 5.95 # 10^12 solar masses
     
-    expected_r_max = 1.1002669906154712
-    expected_M = 5.947007980090099
+    expected_r_max = 1.1002669906154712 # Gy
+    expected_M = 5.947007980090099 # 10^12 solar masses
     
     (r_max, M) = solve_for_r_max_and_M(target_r_now, target_v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
     
@@ -252,9 +245,6 @@ def M_and_derivatives(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, gu
 
 def error_analysis():
 
-    #SECONDS_PER_GIGAYEAR = 3.1556736E+16
-    #METRES_PER_MEGAPARSEC = 3.0856776E+22
-    #INVERSE_SECONDS_PER_KM_OVER_SECOND_OVER_MEGAPARSEC = 1.0E3 / METRES_PER_MEGAPARSEC
 
     r_now = 0.784 # Mpc
     v_now = -130.0 # km/s
