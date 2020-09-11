@@ -252,6 +252,10 @@ def M_and_derivatives(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, gu
 
 def error_analysis():
 
+    #SECONDS_PER_GIGAYEAR = 3.1556736E+16
+    #METRES_PER_MEGAPARSEC = 3.0856776E+22
+    #INVERSE_SECONDS_PER_KM_OVER_SECOND_OVER_MEGAPARSEC = 1.0E3 / METRES_PER_MEGAPARSEC
+
     r_now = 0.784 # Mpc
     v_now = -130.0 # km/s
     t_now = 13.81 # Gy
@@ -263,10 +267,27 @@ def error_analysis():
     
     (M, dM_d_r_now, dM_d_v_now, dM_d_t_now, dM_d_Omega_lambda, dM_d_H_0) = M_and_derivatives(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
     
-    print(M, dM_d_r_now, dM_d_v_now, dM_d_t_now, dM_d_Omega_lambda, dM_d_H_0)
+    print("\n===============\n")
     
+    print("Sensitivity of M to Omega_lambda = {} 10^12 solar masses".format(dM_d_Omega_lambda))
+    
+    print("Sensitivity of M to H0 (via Lambda, with Omega_lambda fixed) = {} 10^12 solar masses / (km/s/Mpc)".format(dM_d_H_0))
+    
+    d_t_now_d_H0 = -t_now/H_0 # In Gy/(km/s/Mpc)
+    dM_d_H_0_via_t_now = dM_d_t_now * d_t_now_d_H0 # In 10^12 solar masses / (km/s/Mpc)
+    print("Sensitivity of M to H0 (via t_now) = {} 10^12 solar masses / (km/s/Mpc)".format(dM_d_H_0_via_t_now))
+    
+    print("\n===============\n")
+    
+    error_in_omega_lambda = 0.01
+    error_in_M_from_omega_lambda = error_in_omega_lambda * dM_d_Omega_lambda
 
+    error_in_H_0 = 6 # km/s/Gy
+    error_in_M_from_H0 = (dM_d_H_0 + dM_d_H_0_via_t_now) * 6
+    
+    print("Error in M from Omega_lambda = {} 10^12 solar masses (assuming error in Omega_lambda = {})".format(error_in_M_from_omega_lambda, error_in_omega_lambda))
 
+    print("Error in M from H0 (both sources) = {} 10^12 solar masses (assuming error in H0 = {} km/s/Mpc)".format(error_in_M_from_H0, error_in_H_0))
     
 
 if __name__ == '__main__':
