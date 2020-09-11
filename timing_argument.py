@@ -23,7 +23,6 @@ import sys
 # r_max (maximum value of r) in Mpc, M in 10^12 solar masses, t_now in Gy, H_0 in km/s/Mpc
 # Return vector of r values (in Mpc) at equally spaced time points has length N. It starts at r_max and then falls.
 def r_vector(r_max, M, time_step, N, Omega_lambda, H_0):
-    assert r_max > 0, "Negative r_max encountered."
     GM = M * 4.50029385227242E-3 # In Mpc^3 Gy^-2
     Lambda_c_squared_over_3 = Omega_lambda * H_0**2 * 1.04566436906929E-06 # In Gy^-2
     r = -1 * np.ones(N) # In Mpc. Default value of -1 denotes 'not calculated (yet)'.
@@ -105,32 +104,6 @@ def r_now_and_v_now(r_max, M, t_now, N, Omega_lambda, H_0):
     
     return (r_now, v_now)
     
-
-
-#### Units:
-#### r1 in Mpc, M in 10^12 solar masses, t_now in Gy, H_0 in km/s/Mpc
-#### return values are r_now in Mpc and v_now in km/s
-#### r1 is the value of r at time step 1 (i.e. at t_now/num_time_steps).
-###def r_now_and_v_now_old(r1, M, t_now, num_time_points, Omega_lambda, H_0):
-###
-###    t = np.linspace(0, t_now, num_time_points) # In Gy
-###    h = t[1] # In Gy
-###    
-###    GM = M * 4.50029385227242E-3 # In Mpc^3 Gy^-2
-###    Lambda_c_squared_over_3 = Omega_lambda * H_0**2 * 1.04566436906929E-06 # In Gy^-2
-###    
-###    r = np.zeros(num_time_points) # In Mpc
-###    r[0] = 0.0 # Just to be explicit...
-###    r[1] = r1
-###    for i in range(2, num_time_points):
-###        prev_r = r[i-1]
-###        prev_prev_r = r[i-2]
-###        r[i] = 2 * prev_r - prev_prev_r + h**2 * (Lambda_c_squared_over_3 * prev_r - GM / prev_r**2)
-###        
-###    r_now = r[num_time_points - 1]
-###    v_now = ((r_now - r[num_time_points - 2]) / h) * 977.921163963219 # In km/s
-###    
-###    return (r_now, v_now)
     
     
 def obj_function(x, extra_args):
@@ -187,9 +160,10 @@ def solve_for_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max
     return(r_max, M)
 
 
-
-
 def regression_test():
+    
+    print("Running regression test...")
+    
     target_r_now = 0.784 # Mpc
     target_v_now = -130.0 # km/s
     t_now = 13.81 # Gy
@@ -206,37 +180,35 @@ def regression_test():
     
     r_max_OK = abs(r_max - expected_r_max) < 1e-3
     M_OK = abs(M - expected_M) < 1e-3
-    
-    print(r_max, M)
 
     print("Regression test " + ("passed" if r_max_OK and M_OK else "FAILED") + ".")
     
     
 
-    
-    
-
 if __name__ == '__main__':
 
+    do_regression_test = ((len(sys.argv) > 1 and sys.argv[1] == "test"))
 
-    regression_test()
-    sys.exit()
+    if do_regression_test:
+        regression_test()
+        
+    else:
 
-    
-    target_r_now = 0.784 # Mpc
-    target_v_now = -130.0 # km/s
-    t_now = 13.81 # Gy
-    N = 5000
-    Omega_lambda = 0.69
-    H_0 = 67.4 # km/s/Mpc
-    guess_r_max = 1.1 # Mpc
-    guess_M = 6.0 # 10^12 solar masses
-    
-    
-    for t_now in np.linspace(13.56, 14.06, 11):
-        (r_max, M) = solve_for_r_max_and_M(target_r_now, target_v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
-        print(target_r_now, target_v_now, t_now, Omega_lambda, H_0, r_max, M)
-    
-    
+        
+        target_r_now = 0.784 # Mpc
+        target_v_now = -130.0 # km/s
+        t_now = 13.81 # Gy
+        N = 5000
+        Omega_lambda = 0.69
+        H_0 = 67.4 # km/s/Mpc
+        guess_r_max = 1.1 # Mpc
+        guess_M = 6.0 # 10^12 solar masses
+        
+        
+        for t_now in np.linspace(13.56, 14.06, 11):
+            (r_max, M) = solve_for_r_max_and_M(target_r_now, target_v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
+            print(target_r_now, target_v_now, t_now, Omega_lambda, H_0, r_max, M)
+        
+        
     
     
