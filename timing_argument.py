@@ -12,14 +12,21 @@ import scipy.optimize as sp
 import matplotlib.pyplot as plt
 import sys
 
+# r = physical distance between MW and M31
+# This evolves according to a differential equation involving G, their total mass M and Lambda.
+# For details see arXiv:1308.0970.
 
+
+# Solve the DE for specified inital conditions and time step. We stop if r becomes negative (and all remaining
+# values are set to -1).
 # Units:
 # r_max (maximum value of r) in Mpc, M in 10^12 solar masses, t_now in Gy, H_0 in km/s/Mpc
 # Return vector of r values (in Mpc) at equally spaced time points has length N. It starts at r_max and then falls.
 def r_vector(r_max, M, time_step, N, Omega_lambda, H_0):
+    assert r_max > 0, "Negative r_max encountered."
     GM = M * 4.50029385227242E-3 # In Mpc^3 Gy^-2
     Lambda_c_squared_over_3 = Omega_lambda * H_0**2 * 1.04566436906929E-06 # In Gy^-2
-    r = np.zeros(N) # In Mpc
+    r = -1 * np.ones(N) # In Mpc. Default value of -1 denotes 'not calculated (yet)'.
     for i in range(N):
         if i == 0:
             r[i] = r_max
@@ -32,12 +39,13 @@ def r_vector(r_max, M, time_step, N, Omega_lambda, H_0):
             else:
                 prev_prev_r = r[i-2]
                 r[i] = 2.0 * prev_r - prev_prev_r + time_step**2 * acceleration
-        #print("i = {}; r[i] = {}".format(i, r[i]))
+        if r[i] < 0.0:
+            break
     return r
                 
         
 
-
+# Find a value for the time_step so that r[N-1] = 0.
 def solve_for_time_step(r_max, M, N, Omega_lambda, H_0):
 
     # Initial guess for time_step is intentionally too short; in the while loop we will refine this guess
@@ -74,22 +82,26 @@ def r_now_and_v_now(r_max, M, t_now, N, Omega_lambda, H_0):
     r = r_vector(r_max, M, time_step, N, Omega_lambda, H_0)
 
     # What (non-integer) index refers to t_now?
-    # Note that we need to subtract N as we have already passed the point of maximum separation
-    index_now = t_now/time_step - N
+    # Note that we need to subtract N-1 as we have already passed the point of maximum separation.
+    # [Note that the time from r=r_max to r=0 (and by symmetry the time from r=0 to r= r_max) is
+    # time_step*(N-1), not time_step*N.]
+    index_now = t_now/time_step - (N-1)
     int_index_now = int(index_now)
     
     if int_index_now < 1:
-        # A better solution would be to extend the r vector to negative indices using time symmetry...
+        # An alternative solution would be to extend the r vector to negative indices using time symmetry...
         return (r_max, 0.0)
     elif int_index_now >= N-3:
-        # A better solution would be to extend the r vector to indices greater than N using symmetry...
+        # An alternative solution would be to extend the r vector to indices greater than N using symmetry...
         return (0.0, -1e4)
     
-    # Fit a polynomial to nearby points...
+    # To evaluate (and evaluate the derivative) and the non-grid point 'index_now', we fit a polynomial to nearby points.
     x = np.array(range(int_index_now-1, int_index_now+3))
     quad_fit = np.polyfit(x, r[x], 2)
-    r_now = np.polyval(quad_fit, index_now)
-    v_now = (np.polyval(np.polyder(quad_fit), index_now) / time_step) * 977.921163963219 # In km/s
+    r_now = np.polyval(quad_fit, index_now) # In Mpc
+    v_now = (np.polyval(np.polyder(quad_fit), index_now) / time_step) # In Mpc/Gy
+    
+    v_now *= 977.921163963219 # In km/s
     
     return (r_now, v_now)
     
@@ -185,15 +197,17 @@ def regression_test():
     Omega_lambda = 0.69
     H_0 = 67.4 # km/s/Mpc
     guess_r_max = 1.1 # Mpc
-    guess_M = 6.0 # 10^12 solar masses
+    guess_M = 5.95 # 10^12 solar masses
     
-    expected_r_max = 1.1002271695950807
-    expected_M = 5.9474545406821955
+    expected_r_max = 1.1002669906154712
+    expected_M = 5.947007980090099
     
     (r_max, M) = solve_for_r_max_and_M(target_r_now, target_v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
     
     r_max_OK = abs(r_max - expected_r_max) < 1e-3
     M_OK = abs(M - expected_M) < 1e-3
+    
+    print(r_max, M)
 
     print("Regression test " + ("passed" if r_max_OK and M_OK else "FAILED") + ".")
     
