@@ -10,6 +10,7 @@
 import numpy as np
 import scipy.optimize as sp
 import matplotlib.pyplot as plt
+import sys
 
 
 # Units:
@@ -162,8 +163,8 @@ def solve_for_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max
     if not root_ret.success:
         raise AssertionError(root_ret.message)
         
-    r_max = ret.x[0]
-    M = ret.x[1]
+    r_max = root_ret.x[0]
+    M = root_ret.x[1]
     
     plot_solution = False
     if plot_solution:
@@ -172,12 +173,40 @@ def solve_for_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max
         show_plot_of_solution(r, time_step, N, t_now)
     
     return(r_max, M)
-        
+
+
+
+
+def regression_test():
+    target_r_now = 0.784 # Mpc
+    target_v_now = -130.0 # km/s
+    t_now = 13.81 # Gy
+    N = 5000
+    Omega_lambda = 0.69
+    H_0 = 67.4 # km/s/Mpc
+    guess_r_max = 1.1 # Mpc
+    guess_M = 6.0 # 10^12 solar masses
+    
+    expected_r_max = 1.1002271695950807
+    expected_M = 5.9474545406821955
+    
+    (r_max, M) = solve_for_r_max_and_M(target_r_now, target_v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
+    
+    r_max_OK = abs(r_max - expected_r_max) < 1e-3
+    M_OK = abs(M - expected_M) < 1e-3
+
+    print("Regression test " + ("passed" if r_max_OK and M_OK else "FAILED") + ".")
+    
+    
 
     
     
 
 if __name__ == '__main__':
+
+
+    regression_test()
+    sys.exit()
 
     
     target_r_now = 0.784 # Mpc
@@ -189,14 +218,6 @@ if __name__ == '__main__':
     guess_r_max = 1.1 # Mpc
     guess_M = 6.0 # 10^12 solar masses
     
-    #for Omega_lambda in np.linspace(0.0, 1.0, 11):
-    #    guess_M = 5.2956 + Omega_lambda*0.945
-    #    (r_max, M) = solve_for_r_max_and_M(target_r_now, target_v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
-    #    print(target_r_now, target_v_now, t_now, Omega_lambda, H_0, r_max, M)
-    
-    #for H_0 in np.linspace(65, 75, 11):
-    #    (r_max, M) = solve_for_r_max_and_M(target_r_now, target_v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
-    #    print(target_r_now, target_v_now, t_now, Omega_lambda, H_0, r_max, M)
     
     for t_now in np.linspace(13.56, 14.06, 11):
         (r_max, M) = solve_for_r_max_and_M(target_r_now, target_v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
