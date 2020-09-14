@@ -150,7 +150,7 @@ def show_plot_of_solution(r, time_step, N, t_now):
     
     
     
-def solve_for_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M):
+def inferred_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M, print_header):
 
     fun = obj_function
     
@@ -173,8 +173,11 @@ def solve_for_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max
         time_step = solve_for_time_step(r_max, M, N, Omega_lambda, H_0)
         r = r_vector(r_max, M, time_step, N, Omega_lambda, H_0)
         show_plot_of_solution(r, time_step, N, t_now)
-    
+        
+    if print_header:
+        print("r_now", "v_now", "t_now", "N", "Omega_lambda", "H_0", "r_max", "M")
     print(r_now, v_now, t_now, N, Omega_lambda, H_0, r_max, M)
+    
     return(r_max, M)
 
 
@@ -194,7 +197,7 @@ def regression_test():
     expected_r_max = 1.1002669906154712 # Gy
     expected_M = 5.947007980090099 # 10^12 solar masses
     
-    (r_max, M) = solve_for_r_max_and_M(target_r_now, target_v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
+    (r_max, M) = inferred_r_max_and_M(target_r_now, target_v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M, True)
     
     r_max_OK = abs(r_max - expected_r_max) < 1e-3
     M_OK = abs(M - expected_M) < 1e-3
@@ -207,7 +210,7 @@ def regression_test():
 # The same unis are used in the return value.
 def M_and_derivatives(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M):
     # Base case
-    (r_max, M) = solve_for_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
+    (r_max, M) = inferred_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M, True)
     
     # Use the base case results as the intial guess when calculating derivatives.
     #print(guess_r_max, r_max, guess_M, M)
@@ -215,28 +218,28 @@ def M_and_derivatives(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, gu
     guess_M = M
     
     r_now_delta = 0.001 # Mpc
-    (_, M_up) = solve_for_r_max_and_M(r_now + r_now_delta, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
-    (_, M_dn) = solve_for_r_max_and_M(r_now - r_now_delta, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
+    (_, M_up) = inferred_r_max_and_M(r_now + r_now_delta, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M, False)
+    (_, M_dn) = inferred_r_max_and_M(r_now - r_now_delta, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M, False)
     dM_d_r_now = (M_up - M_dn) / (2.0 * r_now_delta) # 10^12 solar masses/Mpc
     
     v_now_delta = 1.0 # km/s
-    (_, M_up) = solve_for_r_max_and_M(r_now, v_now + v_now_delta, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
-    (_, M_dn) = solve_for_r_max_and_M(r_now, v_now - v_now_delta, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
+    (_, M_up) = inferred_r_max_and_M(r_now, v_now + v_now_delta, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M, False)
+    (_, M_dn) = inferred_r_max_and_M(r_now, v_now - v_now_delta, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M, False)
     dM_d_v_now = (M_up - M_dn) / (2.0 * v_now_delta) # 10^12 solar masses/(km/s)
     
     t_now_delta = 0.01 # Gy
-    (_, M_up) = solve_for_r_max_and_M(r_now, v_now, t_now + t_now_delta, N, Omega_lambda, H_0, guess_r_max, guess_M)
-    (_, M_dn) = solve_for_r_max_and_M(r_now, v_now, t_now - t_now_delta, N, Omega_lambda, H_0, guess_r_max, guess_M)
+    (_, M_up) = inferred_r_max_and_M(r_now, v_now, t_now + t_now_delta, N, Omega_lambda, H_0, guess_r_max, guess_M, False)
+    (_, M_dn) = inferred_r_max_and_M(r_now, v_now, t_now - t_now_delta, N, Omega_lambda, H_0, guess_r_max, guess_M, False)
     dM_d_t_now = (M_up - M_dn) / (2.0 * t_now_delta) # 10^12 solar masses/Gy
     
     Omega_lambda_delta = 0.01 # unitless
-    (_, M_up) = solve_for_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda + Omega_lambda_delta, H_0, guess_r_max, guess_M)
-    (_, M_dn) = solve_for_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda - Omega_lambda_delta, H_0, guess_r_max, guess_M)
+    (_, M_up) = inferred_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda + Omega_lambda_delta, H_0, guess_r_max, guess_M, False)
+    (_, M_dn) = inferred_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda - Omega_lambda_delta, H_0, guess_r_max, guess_M, False)
     dM_d_Omega_lambda = (M_up - M_dn) / (2.0 * Omega_lambda_delta) # 10^12 solar masses
     
     H_0_delta = 1.0 # km/s/Mpc
-    (_, M_up) = solve_for_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda, H_0 + H_0_delta, guess_r_max, guess_M)
-    (_, M_dn) = solve_for_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda, H_0 - H_0_delta, guess_r_max, guess_M)
+    (_, M_up) = inferred_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda, H_0 + H_0_delta, guess_r_max, guess_M, False)
+    (_, M_dn) = inferred_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda, H_0 - H_0_delta, guess_r_max, guess_M, False)
     dM_d_H_0 = (M_up - M_dn) / (2.0 * H_0_delta) # 10^12 solar masses / (km/s/Mpc)
     
     return(M, dM_d_r_now, dM_d_v_now, dM_d_t_now, dM_d_Omega_lambda, dM_d_H_0)
@@ -263,7 +266,7 @@ def error_analysis():
     
     print("Sensitivity of M to H0 (via Lambda, with Omega_lambda fixed) = {} 10^12 solar masses / (km/s/Mpc)".format(dM_d_H_0))
     
-    d_t_now_d_H0 = -t_now/H_0 # In Gy/(km/s/Mpc)
+    d_t_now_d_H0 = -t_now/H_0 # In Gy /(km/s/Mpc)
     dM_d_H_0_via_t_now = dM_d_t_now * d_t_now_d_H0 # In 10^12 solar masses / (km/s/Mpc)
     print("Sensitivity of M to H0 (via t_now) = {} 10^12 solar masses / (km/s/Mpc)".format(dM_d_H_0_via_t_now))
     
@@ -272,12 +275,14 @@ def error_analysis():
     error_in_omega_lambda = 0.01
     error_in_M_from_omega_lambda = error_in_omega_lambda * dM_d_Omega_lambda
 
-    error_in_H_0 = 6 # km/s/Gy
-    error_in_M_from_H0 = (dM_d_H_0 + dM_d_H_0_via_t_now) * 6
+    error_in_H_0 = 0.5 # km/s/Mpc
+    error_in_M_from_H0 = (dM_d_H_0 + dM_d_H_0_via_t_now) * error_in_H_0
     
     print("Error in M from Omega_lambda = {} 10^12 solar masses (assuming error in Omega_lambda = {})".format(error_in_M_from_omega_lambda, error_in_omega_lambda))
 
     print("Error in M from H0 (both sources) = {} 10^12 solar masses (assuming error in H0 = {} km/s/Mpc)".format(error_in_M_from_H0, error_in_H_0))
+    
+    print("\n===============\n")
     
 
 if __name__ == '__main__':
