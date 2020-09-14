@@ -17,6 +17,13 @@ import math
 # This evolves according to a differential equation involving G, their total mass M and Lambda.
 # For details see arXiv:1308.0970.
 
+SECONDS_PER_GIGAYEAR = 3.1556736E+16
+METRES_PER_MEGAPARSEC = 3.0856776E+22
+
+GRAVITATIONAL_CONSTANT = 6.6743E-11 # m^3 kg^-1 s^-2
+SOLAR_MASS = 1.98847E30 # kg
+
+
 
 # Solve the DE for specified inital conditions and time step. We stop if r becomes negative (and all remaining
 # values are set to -1).
@@ -25,14 +32,10 @@ import math
 # Return vector of r values (in Mpc) at equally spaced time points has length N. It starts at r_max and then falls.
 def r_vector(r_max, M, time_step, N, Omega_lambda, H_0):
 
-    # TODO - use these constants instead of magic numbers.
-    SECONDS_PER_GIGAYEAR = 3.1556736E+16
-    METRES_PER_MEGAPARSEC = 3.0856776E+22
-    #INVERSE_SECONDS_PER_KM_OVER_SECOND_OVER_MEGAPARSEC = 1.0E3 / METRES_PER_MEGAPARSEC
-
-
-    GM = M * 4.50029385227242E-3 # In Mpc^3 Gy^-2
-    Lambda_c_squared_over_3 = Omega_lambda * H_0**2 * 1.04566436906929E-06 # In Gy^-2
+    GM = GRAVITATIONAL_CONSTANT * M * (SOLAR_MASS * 1.0e12 * SECONDS_PER_GIGAYEAR**2 * METRES_PER_MEGAPARSEC**(-3)) # In Mpc^3 Gy^-2
+    
+    Lambda_c_squared_over_3 = Omega_lambda * (H_0**2 * SECONDS_PER_GIGAYEAR**2 * METRES_PER_MEGAPARSEC**(-2) * 1.0e6) # In Gy^-2
+    
     time_step_squared = time_step**2 # In Gy^2
     r = -1 * np.ones(N) # In Mpc. Default value of -1 denotes 'not calculated (yet)'.
     for i in range(N):
@@ -108,13 +111,14 @@ def r_now_and_v_now(r_max, M, t_now, N, Omega_lambda, H_0):
         # An alternative solution would be to extend the r vector to indices greater than N using symmetry...
         return (0.0, -1e4)
     
-    # To evaluate (and evaluate the derivative) and the non-grid point 'index_now', we fit a polynomial to nearby points.
+    # In order to evaluate (and evaluate the derivative) at the non-grid point 'index_now',
+    # we fit a polynomial to nearby points.
     x = np.array(range(int_index_now-1, int_index_now+3))
     quad_fit = np.polyfit(x, r[x], 2)
     r_now = np.polyval(quad_fit, index_now) # In Mpc
     v_now = (np.polyval(np.polyder(quad_fit), index_now) / time_step) # In Mpc/Gy
-    
-    v_now *= 977.921163963219 # In km/s
+
+    v_now *= (1.0e-3 * METRES_PER_MEGAPARSEC / SECONDS_PER_GIGAYEAR) # In km/s
     
     return (r_now, v_now)
     
@@ -194,8 +198,8 @@ def regression_test():
     guess_r_max = 1.1 # Mpc
     guess_M = 5.95 # 10^12 solar masses
     
-    expected_r_max = 1.1002669906154712 # Gy
-    expected_M = 5.947007980090099 # 10^12 solar masses
+    expected_r_max = 1.100301473080796 # Gy
+    expected_M = 5.950378614313688 # 10^12 solar masses
     
     (r_max, M) = inferred_r_max_and_M(target_r_now, target_v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M, True)
     
