@@ -249,14 +249,20 @@ def M_and_derivatives(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, gu
     return(M, dM_d_r_now, dM_d_v_now, dM_d_t_now, dM_d_Omega_lambda, dM_d_H_0)
 
 
+def print_one_uncertainty_item(parameter, parameter_unit, d_mass_d_parameter, parameter_uncertainty):
+    print("{}: sensitivity = {:4.4f} 10^12 solar masses{}; parameter uncertainty = {:4.4f}{}; mass uncertainty = {:4.4f} 10^12 solar masses".format(parameter, d_mass_d_parameter, ("/" if len(parameter_unit) > 0 else "") + parameter_unit, parameter_uncertainty, (" " if len(parameter_unit) > 0 else "") + parameter_unit, abs(d_mass_d_parameter * parameter_uncertainty)))
 
-def error_analysis():
+
+
+
+def uncertainty_analysis():
 
 
     r_now = 0.784 # Mpc
     v_now = -130.0 # km/s
     t_now = 13.81 # Gy
-    N = 5000
+    #N = 5000
+    N = 1000
     Omega_lambda = 0.69 # unitless
     H_0 = 67.4 # km/s/Mpc
     guess_r_max = 1.1 # Mpc
@@ -264,29 +270,16 @@ def error_analysis():
     
     (M, dM_d_r_now, dM_d_v_now, dM_d_t_now, dM_d_Omega_lambda, dM_d_H_0) = M_and_derivatives(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
     
-    print("\n===============\n")
+    uncertainty_in_omega_lambda = 0.006
+    uncertainty_in_H_0 = 0.4 # km/s/Mpc
+    uncertainty_in_t_now = 0.024 # Gy
     
-    print("Sensitivity of M to Omega_lambda = {} 10^12 solar masses".format(dM_d_Omega_lambda))
+    print("\n")
     
-    print("Sensitivity of M to H0 (via Lambda, with Omega_lambda fixed) = {} 10^12 solar masses / (km/s/Mpc)".format(dM_d_H_0))
+    print_one_uncertainty_item("Omega_lambda", "", dM_d_Omega_lambda, uncertainty_in_omega_lambda)
+    print_one_uncertainty_item("H_0", "km/s/Mpc", dM_d_H_0, uncertainty_in_H_0)
+    print_one_uncertainty_item("t_now", "Gy", dM_d_t_now, uncertainty_in_t_now)
     
-    d_t_now_d_H0 = -t_now/H_0 # In Gy /(km/s/Mpc)
-    dM_d_H_0_via_t_now = dM_d_t_now * d_t_now_d_H0 # In 10^12 solar masses / (km/s/Mpc)
-    print("Sensitivity of M to H0 (via t_now) = {} 10^12 solar masses / (km/s/Mpc)".format(dM_d_H_0_via_t_now))
-    
-    print("\n===============\n")
-    
-    error_in_omega_lambda = 0.01
-    error_in_M_from_omega_lambda = error_in_omega_lambda * dM_d_Omega_lambda
-
-    error_in_H_0 = 0.5 # km/s/Mpc
-    error_in_M_from_H0 = (dM_d_H_0 + dM_d_H_0_via_t_now) * error_in_H_0
-    
-    print("Error in M from Omega_lambda = {} 10^12 solar masses (assuming error in Omega_lambda = {})".format(error_in_M_from_omega_lambda, error_in_omega_lambda))
-
-    print("Error in M from H0 (both sources) = {} 10^12 solar masses (assuming error in H0 = {} km/s/Mpc)".format(error_in_M_from_H0, error_in_H_0))
-    
-    print("\n===============\n")
     
 
 if __name__ == '__main__':
@@ -296,7 +289,7 @@ if __name__ == '__main__':
     if do_regression_test:
         regression_test()
     else:
-        error_analysis()
+        uncertainty_analysis()
         
         
         
