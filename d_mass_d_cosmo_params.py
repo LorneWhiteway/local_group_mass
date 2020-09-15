@@ -261,7 +261,6 @@ def uncertainty_analysis():
     r_now = 0.784 # Mpc
     v_now = -130.0 # km/s
     t_now = 13.81 # Gy
-    #N = 5000
     N = 1000
     Omega_lambda = 0.69 # unitless
     H_0 = 67.4 # km/s/Mpc
