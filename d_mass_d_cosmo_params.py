@@ -53,6 +53,9 @@ def r_vector(r_max, M, time_step, N, Omega_lambda, H_0):
                 r[i] = prev_r + 0.5 * time_step_squared * acceleration
             else:
                 prev_prev_r = r[i-2]
+                # This is identical to the leapfrog algorithm. We equate
+                # numerical and analytic expressions for the acceleration at the 
+                # previous step, and solve for r[i].
                 r[i] = 2.0 * prev_r - prev_prev_r + time_step_squared * acceleration
         
         if r[i] < 0.0:
@@ -281,6 +284,44 @@ def uncertainty_analysis():
     
     
 
+# H_0 in km/s/Mpc; return value in Gy
+# Equation 70 in https://www.uni-ulm.de/fileadmin/website_uni_ulm/nawi.inst.260/paper/08/tp08-7.pdf
+# Ignores radiation.
+def age_of_universe(Omega_lambda, H_0):
+
+    Omega_m = 1.0 - Omega_lambda
+
+    factor = (2.0/3.0) * np.log(np.sqrt(Omega_lambda/Omega_m) + np.sqrt(1.0/Omega_m)) / np.sqrt(Omega_lambda)
+    
+    return factor / (H_0 * 1.0e3 * SECONDS_PER_GIGAYEAR / METRES_PER_MEGAPARSEC)
+    
+    
+# See https://arxiv.org/abs/1903.10849
+def comparison_with_michaels_work():
+    
+    r_now = 0.77 # Mpc
+    v_now = -109.4 # km/s
+    
+    N = 1000
+    Omega_lambda = 0.7 # unitless
+    #H_0 = 67 # km/s/Mpc
+    
+    guess_r_max = 1.03 # Mpc
+    guess_M = 4.7 # 10^12 solar masses
+    
+    printHeader = True
+    
+    for H_0 in np.linspace(60.0, 80.0, 21):
+        t_now = age_of_universe(Omega_lambda, H_0) # Gy
+        
+        (r_max, M) = inferred_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M, printHeader)
+        
+        # Use the previous results as the starting point for the next iteration.
+        guess_r_max = r_max
+        guess_M = M
+        printHeader = False
+    
+
 if __name__ == '__main__':
 
     do_regression_test = ((len(sys.argv) > 1 and sys.argv[1] == "test"))
@@ -288,7 +329,9 @@ if __name__ == '__main__':
     if do_regression_test:
         regression_test()
     else:
-        uncertainty_analysis()
+        #uncertainty_analysis()
+        comparison_with_michaels_work()
+        
         
         
         
