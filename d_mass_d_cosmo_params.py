@@ -215,7 +215,7 @@ def regression_test():
 # Units:
 # r_now in Mpc, v_now in km/s, t_now in Gy, H_0 in km/s/Mpc, guess_r_max in Mpc, guess_M in 10^12 solar masses.
 # The same unis are used in the return value.
-def M_and_derivatives(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M):
+def M_and_derivatives_old_parameterization(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M):
     # Base case
     (r_max, M) = inferred_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M, True)
     
@@ -252,13 +252,21 @@ def M_and_derivatives(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, gu
     return(M, dM_d_r_now, dM_d_v_now, dM_d_t_now, dM_d_Omega_lambda, dM_d_H_0)
 
 
+
+def combine_in_quadrature(std1, std2):
+    return math.sqrt(std1**2 + std2**2)
+
+
+# Returns abs(d_mass_d_parameter * parameter_uncertainty) in 10^12 solar masses
 def print_one_uncertainty_item(parameter, parameter_unit, d_mass_d_parameter, parameter_uncertainty):
     print("{}: sensitivity = {:4.4f} 10^12 solar masses{}; parameter uncertainty = {:4.4f}{}; mass uncertainty = {:4.4f} 10^12 solar masses".format(parameter, d_mass_d_parameter, ("/" if len(parameter_unit) > 0 else "") + parameter_unit, parameter_uncertainty, (" " if len(parameter_unit) > 0 else "") + parameter_unit, abs(d_mass_d_parameter * parameter_uncertainty)))
+    
+    return abs(d_mass_d_parameter * parameter_uncertainty)
 
 
 
 
-def uncertainty_analysis():
+def uncertainty_analysis_1():
 
 
     r_now = 0.784 # Mpc
@@ -270,7 +278,7 @@ def uncertainty_analysis():
     guess_r_max = 1.1 # Mpc
     guess_M = 5.95 # 10^12 solar masses
     
-    (M, dM_d_r_now, dM_d_v_now, dM_d_t_now, dM_d_Omega_lambda, dM_d_H_0) = M_and_derivatives(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
+    (M, dM_d_r_now, dM_d_v_now, dM_d_t_now, dM_d_Omega_lambda, dM_d_H_0) = M_and_derivatives_old_parameterization(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
     
     uncertainty_in_omega_lambda = 0.006
     uncertainty_in_H_0 = 0.4 # km/s/Mpc
@@ -281,6 +289,67 @@ def uncertainty_analysis():
     print_one_uncertainty_item("Omega_lambda", "", dM_d_Omega_lambda, uncertainty_in_omega_lambda)
     print_one_uncertainty_item("H_0", "km/s/Mpc", dM_d_H_0, uncertainty_in_H_0)
     print_one_uncertainty_item("t_now", "Gy", dM_d_t_now, uncertainty_in_t_now)
+    
+    
+# Units:
+# r_now in Mpc, v_now in km/s, H_0 in km/s/Mpc, guess_r_max in Mpc, guess_M in 10^12 solar masses.
+# The same unis are used in the return value.
+def M_new_parameterization(r_now, v_now, N, Omega_lambda, H_0, guess_r_max, guess_M, printHeader):
+    t_now = age_of_universe(Omega_lambda, H_0) # Gy
+    (_, M) = inferred_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M, printHeader)
+    return M
+    
+    
+def M_and_derivatives_new_parameterization(r_now, v_now, N, Omega_lambda, H_0, guess_r_max, guess_M):
+
+    M = M_new_parameterization(r_now, v_now, N, Omega_lambda, H_0, guess_r_max, guess_M, True)
+    
+    Omega_lambda_delta = 0.01 # unitless
+    M_up = M_new_parameterization(r_now, v_now, N, Omega_lambda + Omega_lambda_delta, H_0, guess_r_max, guess_M, False)
+    M_dn = M_new_parameterization(r_now, v_now, N, Omega_lambda - Omega_lambda_delta, H_0, guess_r_max, guess_M, False)
+    dM_d_Omega_lambda = (M_up - M_dn) / (2.0 * Omega_lambda_delta) # 10^12 solar masses
+    
+    H_0_delta = 1.0 # km/s/Mpc
+    M_up = M_new_parameterization(r_now, v_now, N, Omega_lambda, H_0 + H_0_delta, guess_r_max, guess_M, False)
+    M_dn = M_new_parameterization(r_now, v_now, N, Omega_lambda, H_0 - H_0_delta, guess_r_max, guess_M, False)
+    dM_d_H_0 = (M_up - M_dn) / (2.0 * H_0_delta) # 10^12 solar masses / (km/s/Mpc)
+    
+    return(M, dM_d_Omega_lambda, dM_d_H_0)
+
+    
+    
+    
+def uncertainty_analysis_2():    
+    
+    r_now = 0.784 # Mpc
+    v_now = -130.0 # km/s
+    N = 1000
+    Omega_lambda = 0.69 # unitless
+    H_0 = 67.0 # km/s/Mpc
+    guess_r_max = 1.1 # Mpc
+    guess_M = 5.95 # 10^12 solar masses
+    
+    (M, dM_d_Omega_lambda, dM_d_H_0) = M_and_derivatives_new_parameterization(r_now, v_now, N, Omega_lambda, H_0, guess_r_max, guess_M)
+    
+    uncertainty_from_posterior_width = 2.3 # 10^12 solar masses
+    
+    for uncertainty_in_H_0 in [0.4, 4.0]: # km/s/Mpc
+
+        print("============")
+        
+        uncertainty_in_omega_lambda = 0.006
+        mass_uncertainty_1 = print_one_uncertainty_item("Omega_lambda", "", dM_d_Omega_lambda, uncertainty_in_omega_lambda)
+        mass_uncertainty_2 = print_one_uncertainty_item("H_0", "km/s/Mpc", dM_d_H_0, uncertainty_in_H_0)
+        
+        mass_uncertainty_1_2 = combine_in_quadrature(mass_uncertainty_1, mass_uncertainty_2)
+        print("Uncertainty from H_0 and Omega_lambda (combined in quadrature): {} 10^12 solar masses".format(mass_uncertainty_1_2))
+        
+        total_mass_uncertainty = combine_in_quadrature(uncertainty_from_posterior_width, mass_uncertainty_1_2)
+        print("Total Uncertainty (combined in quadrature with uncertainty of {} 10^12 solar masses from posterior width): {} 10^12 solar masses".format(uncertainty_from_posterior_width, total_mass_uncertainty))
+    
+    
+    print("============")
+    
     
     
 
@@ -329,8 +398,9 @@ if __name__ == '__main__':
     if do_regression_test:
         regression_test()
     else:
-        #uncertainty_analysis()
-        comparison_with_michaels_work()
+        #uncertainty_analysis_1()
+        #comparison_with_michaels_work()
+        uncertainty_analysis_2()
         
         
         
