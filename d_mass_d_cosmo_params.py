@@ -389,6 +389,28 @@ def comparison_with_michaels_work():
         guess_r_max = r_max
         guess_M = M
         printHeader = False
+        
+def H0_sensitivity_breakdown():
+
+    r_now = 0.784 # Mpc
+    v_now = -130.0 # km/s
+    N = 1000
+    Omega_lambda = 0.69 # unitless
+    H_0 = 67.0 # km/s/Mpc
+    guess_r_max = 1.1 # Mpc
+    guess_M = 5.95 # 10^12 solar masses
+    
+    t_now = age_of_universe(Omega_lambda, H_0)
+    (_, m1) = inferred_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda, H_0, guess_r_max, guess_M, True)
+    H_0_prime = H_0+4
+    (_, m2) = inferred_r_max_and_M(r_now, v_now, t_now, N, Omega_lambda, H_0_prime, guess_r_max, guess_M, False)
+    print(m2-m1)
+    t_now_prime = t_now * (H_0 / (H_0+4))
+    (_, m3) = inferred_r_max_and_M(r_now, v_now, t_now_prime, N, Omega_lambda, H_0, guess_r_max, guess_M, False)
+    print(m3-m1)
+    (_, m4) = inferred_r_max_and_M(r_now, v_now, t_now_prime, N, Omega_lambda, H_0_prime, guess_r_max, guess_M, False)
+    print(m4-m1)
+    
     
 
 if __name__ == '__main__':
@@ -401,6 +423,7 @@ if __name__ == '__main__':
         #uncertainty_analysis_1()
         #comparison_with_michaels_work()
         uncertainty_analysis_2()
+        H0_sensitivity_breakdown()
         
         
         
